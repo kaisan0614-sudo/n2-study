@@ -11,7 +11,7 @@ db.seed_data()
 
 @app.before_request
 def require_user():
-    public = {'select_user', 'choose_user', 'add_user', 'static'}
+    public = {'select_user', 'choose_user', 'add_user', 'delete_user', 'static'}
     if request.endpoint not in public and 'user_id' not in session:
         return redirect(url_for('select_user'))
 
