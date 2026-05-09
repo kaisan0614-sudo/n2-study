@@ -21,6 +21,12 @@
           <li class="nav-item"><a class="nav-link {% if request.endpoint=='vocab' %}active{% endif %}" href="/vocab"><i class="bi bi-book"></i> 詞彙學習</a></li>
           <li class="nav-item"><a class="nav-link {% if 'quiz' in request.endpoint %}active{% endif %}" href="/quiz"><i class="bi bi-pencil-square"></i> 題庫練習</a></li>
           <li class="nav-item"><a class="nav-link {% if request.endpoint=='stats' %}active{% endif %}" href="/stats"><i class="bi bi-bar-chart-line"></i> 學習進度</a></li>
+          {% if session.user_name %}
+          <li class="nav-item d-flex align-items-center ms-2">
+            <span class="text-white me-2"><i class="bi bi-person-circle"></i> {{ session.user_name }}</span>
+            <a class="btn btn-outline-light btn-sm" href="/switch">切換</a>
+          </li>
+          {% endif %}
         </ul>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 import db
 
 app = Flask(__name__)
@@ -9,21 +9,64 @@ db.init_db()
 db.seed_data()
 
 
+@app.before_request
+def require_user():
+    public = {'select_user', 'choose_user', 'add_user', 'static'}
+    if request.endpoint not in public and 'user_id' not in session:
+        return redirect(url_for('select_user'))
+
+
+@app.route("/select")
+def select_user():
+    users = db.get_users()
+    return render_template("select_user.html", users=users)
+
+
+@app.route("/select/<int:user_id>")
+def choose_user(user_id):
+    users = db.get_users()
+    user = next((u for u in users if u['id'] == user_id), None)
+    if user:
+        session['user_id'] = user_id
+        session['user_name'] = user['name']
+    return redirect(url_for('index'))
+
+
+@app.route("/add_user", methods=["POST"])
+def add_user():
+    name = request.form.get("name", "").strip()
+    if name:
+        new_id = db.create_user(name)
+        if new_id:
+            session['user_id'] = new_id
+            session['user_name'] = name
+            return redirect(url_for('index'))
+    return redirect(url_for('select_user'))
+
+
+@app.route("/switch")
+def switch_user():
+    session.clear()
+    return redirect(url_for('select_user'))
+
+
 @app.route("/")
 def index():
-    db.log_session()
-    stats = db.get_dashboard_stats()
-    current_day = db.get_current_day()
+    user_id = session['user_id']
+    db.log_session(user_id)
+    stats = db.get_dashboard_stats(user_id)
+    current_day = db.get_current_day(user_id)
     return render_template("index.html", stats=stats, current_day=current_day)
 
 
 @app.route("/vocab")
 def vocab():
-    db.log_session()
+    user_id = session['user_id']
+    db.log_session(user_id)
     day = request.args.get("day", None, type=int)
     if day is None:
-        day = db.get_current_day()
-    vocab_list = db.get_vocab_for_day(day)
+        day = db.get_current_day(user_id)
+    vocab_list = db.get_vocab_for_day(day, user_id)
     total_days = db.get_total_days()
     return render_template("vocab.html", vocab_list=vocab_list, day=day, total_days=total_days)
 
@@ -51,20 +94,21 @@ def quiz(quiz_type):
 
 @app.route("/stats")
 def stats():
-    stats_data = db.get_full_stats()
+    user_id = session['user_id']
+    stats_data = db.get_full_stats(user_id)
     return render_template("stats.html", stats=stats_data)
 
 
 @app.route("/api/vocab/status", methods=["POST"])
 def api_vocab_status():
     data = request.get_json()
-    db.update_vocab_status(data["vocab_id"], data["status"])
+    db.update_vocab_status(data["vocab_id"], data["status"], session['user_id'])
     return jsonify({"success": True})
 
 
 @app.route("/api/quiz/submit", methods=["POST"])
 def api_quiz_submit():
-    result = db.record_quiz_attempts(request.get_json())
+    result = db.record_quiz_attempts(request.get_json(), session['user_id'])
     return jsonify(result)
 
 
@@ -84,7 +128,7 @@ def api_import():
 
 
 if __name__ == "__main__":
-    print("🎌 N2 日文學習系統啟動中...")
+    print("N2 日文學習系統啟動中...")
     print("   本機：http://127.0.0.1:5000")
     print("   區域網路：http://192.168.50.5:5000")
     app.run(host="0.0.0.0", debug=True, port=5000)

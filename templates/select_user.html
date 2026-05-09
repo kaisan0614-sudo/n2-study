@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>選擇使用者 - N2 日文學習</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+  <div class="container py-5">
+    <div class="text-center mb-5">
+      <h1 class="display-5 fw-bold text-danger">🎌 N2 日文學習系統</h1>
+      <p class="text-muted">選擇你的使用者</p>
+    </div>
+
+    <div class="row justify-content-center g-3 mb-4">
+      {% for user in users %}
+      <div class="col-6 col-md-3">
+        <a href="/select/{{ user.id }}" class="text-decoration-none">
+          <div class="card text-center py-4 h-100 shadow-sm border-0" style="cursor:pointer;">
+            <div class="card-body">
+              <div class="display-4 mb-2">👤</div>
+              <div class="fw-bold fs-5">{{ user.name }}</div>
+            </div>
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="row justify-content-center">
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body">
+            <h6 class="card-title text-muted mb-3">新增使用者</h6>
+            <form action="/add_user" method="post" class="d-flex gap-2">
+              <input type="text" name="name" class="form-control" placeholder="輸入名字" required maxlength="20">
+              <button type="submit" class="btn btn-danger">新增</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

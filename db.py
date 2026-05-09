@@ -17,6 +17,7 @@ def get_db():
 def init_db():
     conn = get_db()
     c = conn.cursor()
+
     c.executescript("""
         CREATE TABLE IF NOT EXISTS vocabulary (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,27 +27,6 @@ def init_db():
             example_jp TEXT,
             example_zh TEXT,
             day_group INTEGER DEFAULT 1
-        );
-        CREATE TABLE IF NOT EXISTS user_vocab_status (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            vocab_id INTEGER UNIQUE,
-            status TEXT DEFAULT 'new',
-            review_count INTEGER DEFAULT 0,
-            last_reviewed TIMESTAMP,
-            FOREIGN KEY (vocab_id) REFERENCES vocabulary(id)
-        );
-        CREATE TABLE IF NOT EXISTS study_sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_date DATE NOT NULL UNIQUE,
-            vocab_studied INTEGER DEFAULT 0,
-            quiz_taken INTEGER DEFAULT 0
-        );
-        CREATE TABLE IF NOT EXISTS quiz_attempts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            question_id INTEGER,
-            question_type TEXT,
-            is_correct INTEGER,
-            attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS questions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,9 +45,114 @@ def init_db():
             backup_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             filename TEXT
         );
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE
+        );
     """)
+
+    existing = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+
+    if 'user_vocab_status' not in existing:
+        c.executescript("""
+            CREATE TABLE user_vocab_status (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL DEFAULT 1,
+                vocab_id INTEGER,
+                status TEXT DEFAULT 'new',
+                review_count INTEGER DEFAULT 0,
+                last_reviewed TIMESTAMP,
+                UNIQUE(user_id, vocab_id),
+                FOREIGN KEY (vocab_id) REFERENCES vocabulary(id)
+            );
+            CREATE TABLE study_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL DEFAULT 1,
+                session_date DATE NOT NULL,
+                vocab_studied INTEGER DEFAULT 0,
+                quiz_taken INTEGER DEFAULT 0,
+                UNIQUE(user_id, session_date)
+            );
+            CREATE TABLE quiz_attempts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL DEFAULT 1,
+                question_id INTEGER,
+                question_type TEXT,
+                is_correct INTEGER,
+                attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+    else:
+        cols = {r[1] for r in c.execute("PRAGMA table_info(user_vocab_status)").fetchall()}
+        if 'user_id' not in cols:
+            c.executescript("""
+                ALTER TABLE user_vocab_status RENAME TO _uvs_old;
+                ALTER TABLE study_sessions RENAME TO _ss_old;
+                ALTER TABLE quiz_attempts RENAME TO _qa_old;
+
+                CREATE TABLE user_vocab_status (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL DEFAULT 1,
+                    vocab_id INTEGER,
+                    status TEXT DEFAULT 'new',
+                    review_count INTEGER DEFAULT 0,
+                    last_reviewed TIMESTAMP,
+                    UNIQUE(user_id, vocab_id),
+                    FOREIGN KEY (vocab_id) REFERENCES vocabulary(id)
+                );
+                CREATE TABLE study_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL DEFAULT 1,
+                    session_date DATE NOT NULL,
+                    vocab_studied INTEGER DEFAULT 0,
+                    quiz_taken INTEGER DEFAULT 0,
+                    UNIQUE(user_id, session_date)
+                );
+                CREATE TABLE quiz_attempts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL DEFAULT 1,
+                    question_id INTEGER,
+                    question_type TEXT,
+                    is_correct INTEGER,
+                    attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+
+                INSERT INTO user_vocab_status SELECT id, 1, vocab_id, status, review_count, last_reviewed FROM _uvs_old;
+                INSERT INTO study_sessions SELECT id, 1, session_date, vocab_studied, quiz_taken FROM _ss_old;
+                INSERT INTO quiz_attempts SELECT id, 1, question_id, question_type, is_correct, attempted_at FROM _qa_old;
+
+                DROP TABLE _uvs_old;
+                DROP TABLE _ss_old;
+                DROP TABLE _qa_old;
+            """)
+
+    if c.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
+        c.execute("INSERT OR IGNORE INTO users (id, name) VALUES (1, 'Kai')")
+
     conn.commit()
     conn.close()
+
+
+def get_users():
+    conn = get_db()
+    c = conn.cursor()
+    rows = c.execute("SELECT * FROM users ORDER BY id").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def create_user(name):
+    conn = get_db()
+    c = conn.cursor()
+    try:
+        c.execute("INSERT INTO users (name) VALUES (?)", (name,))
+        conn.commit()
+        user_id = c.lastrowid
+        conn.close()
+        return user_id
+    except sqlite3.IntegrityError:
+        conn.close()
+        return None
 
 
 def seed_data():
@@ -91,19 +176,19 @@ def seed_data():
     conn.close()
 
 
-def log_session():
+def log_session(user_id):
     today = date.today().isoformat()
     conn = get_db()
     c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO study_sessions (session_date, vocab_studied, quiz_taken) VALUES (?,0,0)", (today,))
+    c.execute("INSERT OR IGNORE INTO study_sessions (user_id, session_date, vocab_studied, quiz_taken) VALUES (?,?,0,0)", (user_id, today))
     conn.commit()
     conn.close()
 
 
-def get_current_day():
+def get_current_day(user_id):
     conn = get_db()
     c = conn.cursor()
-    count = c.execute("SELECT COUNT(*) FROM study_sessions").fetchone()[0]
+    count = c.execute("SELECT COUNT(*) FROM study_sessions WHERE user_id=?", (user_id,)).fetchone()[0]
     max_day = c.execute("SELECT COALESCE(MAX(day_group),1) FROM vocabulary").fetchone()[0]
     conn.close()
     return min(max(count, 1), max_day)
@@ -117,33 +202,33 @@ def get_total_days():
     return v
 
 
-def get_vocab_for_day(day):
+def get_vocab_for_day(day, user_id):
     conn = get_db()
     c = conn.cursor()
     rows = c.execute("""
         SELECT v.*, COALESCE(uvs.status, 'new') AS status
         FROM vocabulary v
-        LEFT JOIN user_vocab_status uvs ON v.id = uvs.vocab_id
+        LEFT JOIN user_vocab_status uvs ON v.id = uvs.vocab_id AND uvs.user_id = ?
         WHERE v.day_group = ?
         ORDER BY v.id
-    """, (day,)).fetchall()
+    """, (user_id, day)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def update_vocab_status(vocab_id, status):
+def update_vocab_status(vocab_id, status, user_id):
     conn = get_db()
     c = conn.cursor()
     c.execute("""
-        INSERT INTO user_vocab_status (vocab_id, status, review_count, last_reviewed)
-        VALUES (?, ?, 1, CURRENT_TIMESTAMP)
-        ON CONFLICT(vocab_id) DO UPDATE SET
+        INSERT INTO user_vocab_status (user_id, vocab_id, status, review_count, last_reviewed)
+        VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id, vocab_id) DO UPDATE SET
             status = excluded.status,
             review_count = review_count + 1,
             last_reviewed = CURRENT_TIMESTAMP
-    """, (vocab_id, status))
+    """, (user_id, vocab_id, status))
     today = date.today().isoformat()
-    c.execute("UPDATE study_sessions SET vocab_studied = vocab_studied + 1 WHERE session_date = ?", (today,))
+    c.execute("UPDATE study_sessions SET vocab_studied = vocab_studied + 1 WHERE user_id=? AND session_date=?", (user_id, today))
     conn.commit()
     conn.close()
 
@@ -156,7 +241,7 @@ def get_questions(quiz_type):
     return [dict(r) for r in rows]
 
 
-def record_quiz_attempts(data):
+def record_quiz_attempts(data, user_id):
     answers = data.get("answers", {})
     conn = get_db()
     c = conn.cursor()
@@ -171,8 +256,8 @@ def record_quiz_attempts(data):
         is_correct = 1 if user_ans == q["correct_answer"] else 0
         if is_correct:
             correct_count += 1
-        c.execute("INSERT INTO quiz_attempts (question_id, question_type, is_correct) VALUES (?,?,?)",
-                  (q["id"], q["type"], is_correct))
+        c.execute("INSERT INTO quiz_attempts (user_id, question_id, question_type, is_correct) VALUES (?,?,?,?)",
+                  (user_id, q["id"], q["type"], is_correct))
         details.append({
             "question": q["question"],
             "your_answer": f"{user_ans.upper()}. {q['option_' + user_ans]}",
@@ -182,7 +267,7 @@ def record_quiz_attempts(data):
         })
 
     today = date.today().isoformat()
-    c.execute("UPDATE study_sessions SET quiz_taken = quiz_taken + 1 WHERE session_date = ?", (today,))
+    c.execute("UPDATE study_sessions SET quiz_taken = quiz_taken + 1 WHERE user_id=? AND session_date=?", (user_id, today))
     conn.commit()
     conn.close()
 
@@ -213,15 +298,15 @@ def _consecutive_days(sessions):
     return count
 
 
-def get_dashboard_stats():
+def get_dashboard_stats(user_id):
     conn = get_db()
     c = conn.cursor()
     total = c.execute("SELECT COUNT(*) FROM vocabulary").fetchone()[0]
-    mastered = c.execute("SELECT COUNT(*) FROM user_vocab_status WHERE status='mastered'").fetchone()[0]
-    learning = c.execute("SELECT COUNT(*) FROM user_vocab_status WHERE status='learning'").fetchone()[0]
-    sessions = c.execute("SELECT session_date FROM study_sessions ORDER BY session_date DESC").fetchall()
-    total_q = c.execute("SELECT COUNT(*) FROM quiz_attempts").fetchone()[0]
-    correct_q = c.execute("SELECT COUNT(*) FROM quiz_attempts WHERE is_correct=1").fetchone()[0]
+    mastered = c.execute("SELECT COUNT(*) FROM user_vocab_status WHERE user_id=? AND status='mastered'", (user_id,)).fetchone()[0]
+    learning = c.execute("SELECT COUNT(*) FROM user_vocab_status WHERE user_id=? AND status='learning'", (user_id,)).fetchone()[0]
+    sessions = c.execute("SELECT session_date FROM study_sessions WHERE user_id=? ORDER BY session_date DESC", (user_id,)).fetchall()
+    total_q = c.execute("SELECT COUNT(*) FROM quiz_attempts WHERE user_id=?", (user_id,)).fetchone()[0]
+    correct_q = c.execute("SELECT COUNT(*) FROM quiz_attempts WHERE user_id=? AND is_correct=1", (user_id,)).fetchone()[0]
     conn.close()
     return {
         "vocab_total": total,
@@ -235,25 +320,25 @@ def get_dashboard_stats():
     }
 
 
-def get_full_stats():
+def get_full_stats(user_id):
     conn = get_db()
     c = conn.cursor()
     total = c.execute("SELECT COUNT(*) FROM vocabulary").fetchone()[0]
-    mastered = c.execute("SELECT COUNT(*) FROM user_vocab_status WHERE status='mastered'").fetchone()[0]
-    learning = c.execute("SELECT COUNT(*) FROM user_vocab_status WHERE status='learning'").fetchone()[0]
-    sessions = c.execute("SELECT session_date FROM study_sessions ORDER BY session_date DESC").fetchall()
+    mastered = c.execute("SELECT COUNT(*) FROM user_vocab_status WHERE user_id=? AND status='mastered'", (user_id,)).fetchone()[0]
+    learning = c.execute("SELECT COUNT(*) FROM user_vocab_status WHERE user_id=? AND status='learning'", (user_id,)).fetchone()[0]
+    sessions = c.execute("SELECT session_date FROM study_sessions WHERE user_id=? ORDER BY session_date DESC", (user_id,)).fetchall()
 
     accuracy_by_type = {}
     for t in ["kanji", "grammar", "listening", "reading"]:
-        tot = c.execute("SELECT COUNT(*) FROM quiz_attempts WHERE question_type=?", (t,)).fetchone()[0]
-        cor = c.execute("SELECT COUNT(*) FROM quiz_attempts WHERE question_type=? AND is_correct=1", (t,)).fetchone()[0]
+        tot = c.execute("SELECT COUNT(*) FROM quiz_attempts WHERE user_id=? AND question_type=?", (user_id, t)).fetchone()[0]
+        cor = c.execute("SELECT COUNT(*) FROM quiz_attempts WHERE user_id=? AND question_type=? AND is_correct=1", (user_id, t)).fetchone()[0]
         accuracy_by_type[t] = round(cor / tot * 100, 1) if tot else 0
 
     weekly_data = []
     today = date.today()
     for i in range(6, -1, -1):
         d = today - timedelta(days=i)
-        row = c.execute("SELECT vocab_studied, quiz_taken FROM study_sessions WHERE session_date=?", (d.isoformat(),)).fetchone()
+        row = c.execute("SELECT vocab_studied, quiz_taken FROM study_sessions WHERE user_id=? AND session_date=?", (user_id, d.isoformat())).fetchone()
         weekly_data.append({
             "date": d.strftime("%m/%d"),
             "studied": 1 if row else 0,
@@ -261,8 +346,8 @@ def get_full_stats():
             "quiz": row["quiz_taken"] if row else 0,
         })
 
-    total_q = c.execute("SELECT COUNT(*) FROM quiz_attempts").fetchone()[0]
-    correct_q = c.execute("SELECT COUNT(*) FROM quiz_attempts WHERE is_correct=1").fetchone()[0]
+    total_q = c.execute("SELECT COUNT(*) FROM quiz_attempts WHERE user_id=?", (user_id,)).fetchone()[0]
+    correct_q = c.execute("SELECT COUNT(*) FROM quiz_attempts WHERE user_id=? AND is_correct=1", (user_id,)).fetchone()[0]
     conn.close()
 
     return {
