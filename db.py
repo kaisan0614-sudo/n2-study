@@ -155,6 +155,17 @@ def create_user(name):
         return None
 
 
+def delete_user(user_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM user_vocab_status WHERE user_id=?", (user_id,))
+    c.execute("DELETE FROM study_sessions WHERE user_id=?", (user_id,))
+    c.execute("DELETE FROM quiz_attempts WHERE user_id=?", (user_id,))
+    c.execute("DELETE FROM users WHERE id=?", (user_id,))
+    conn.commit()
+    conn.close()
+
+
 def seed_data():
     from data import VOCABULARY, QUESTIONS
     conn = get_db()

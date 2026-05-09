@@ -44,6 +44,14 @@ def add_user():
     return redirect(url_for('select_user'))
 
 
+@app.route("/delete_user/<int:user_id>", methods=["POST"])
+def delete_user(user_id):
+    if session.get('user_id') == user_id:
+        session.clear()
+    db.delete_user(user_id)
+    return redirect(url_for('select_user'))
+
+
 @app.route("/switch")
 def switch_user():
     session.clear()

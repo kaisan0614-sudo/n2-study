@@ -17,14 +17,18 @@
     <div class="row justify-content-center g-3 mb-4">
       {% for user in users %}
       <div class="col-6 col-md-3">
-        <a href="/select/{{ user.id }}" class="text-decoration-none">
-          <div class="card text-center py-4 h-100 shadow-sm border-0" style="cursor:pointer;">
+        <div class="card text-center py-4 h-100 shadow-sm border-0 position-relative">
+          <a href="/select/{{ user.id }}" class="text-decoration-none text-dark stretched-link">
             <div class="card-body">
               <div class="display-4 mb-2">👤</div>
               <div class="fw-bold fs-5">{{ user.name }}</div>
             </div>
-          </div>
-        </a>
+          </a>
+          <form action="/delete_user/{{ user.id }}" method="post" class="position-absolute top-0 end-0 m-2" style="z-index:10;">
+            <button type="submit" class="btn btn-sm btn-outline-danger"
+              onclick="return confirm('刪除「{{ user.name }}」的所有資料？')">✕</button>
+          </form>
+        </div>
       </div>
       {% endfor %}
     </div>
