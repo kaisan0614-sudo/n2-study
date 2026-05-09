@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}題庫練習 — N2 日文學習{% endblock %}
+{% block content %}
+
+<h3 class="fw-bold mb-1">📝 N2 題庫練習</h3>
+<p class="text-muted mb-4">共 17 題歷屆 N2 真題，涵蓋四大題型</p>
+
+<div class="row g-4">
+  <div class="col-12 col-md-6">
+    <a href="/quiz/kanji" class="text-decoration-none">
+      <div class="card quiz-type-card border-0 shadow-sm h-100">
+        <div class="card-body p-4">
+          <div class="quiz-icon">漢</div>
+          <h4 class="fw-bold mt-3">漢字讀音</h4>
+          <p class="text-muted">測試漢字的假名讀音，考察常見 N2 漢字。</p>
+          <div class="d-flex align-items-center justify-content-between">
+            <span class="badge bg-danger">5 題</span>
+            <span class="text-danger fw-bold">開始練習 →</span>
+          </div>
+        </div>
+      </div>
+    </a>
+  </div>
+
+  <div class="col-12 col-md-6">
+    <a href="/quiz/grammar" class="text-decoration-none">
+      <div class="card quiz-type-card border-0 shadow-sm h-100">
+        <div class="card-body p-4">
+          <div class="quiz-icon">文</div>
+          <h4 class="fw-bold mt-3">語法選擇</h4>
+          <p class="text-muted">N2 核心語法填空，包含にもかかわらず・によって等句型。</p>
+          <div class="d-flex align-items-center justify-content-between">
+            <span class="badge bg-primary">5 題</span>
+            <span class="text-primary fw-bold">開始練習 →</span>
+          </div>
+        </div>
+      </div>
+    </a>
+  </div>
+
+  <div class="col-12 col-md-6">
+    <a href="/quiz/listening" class="text-decoration-none">
+      <div class="card quiz-type-card border-0 shadow-sm h-100">
+        <div class="card-body p-4">
+          <div class="quiz-icon">聴</div>
+          <h4 class="fw-bold mt-3">聽力理解</h4>
+          <p class="text-muted">情境對話場景模擬，訓練聽力理解與資訊提取能力。</p>
+          <div class="d-flex align-items-center justify-content-between">
+            <span class="badge bg-warning text-dark">4 題</span>
+            <span class="text-warning fw-bold">開始練習 →</span>
+          </div>
+        </div>
+      </div>
+    </a>
+  </div>
+
+  <div class="col-12 col-md-6">
+    <a href="/quiz/reading" class="text-decoration-none">
+      <div class="card quiz-type-card border-0 shadow-sm h-100">
+        <div class="card-body p-4">
+          <div class="quiz-icon">読</div>
+          <h4 class="fw-bold mt-3">閱讀理解</h4>
+          <p class="text-muted">三篇長文閱讀，涵蓋科技、環境、教育等 N2 常考主題。</p>
+          <div class="d-flex align-items-center justify-content-between">
+            <span class="badge bg-success">3 題</span>
+            <span class="text-success fw-bold">開始練習 →</span>
+          </div>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,65 @@
+body { background: #f5f5f5; }
+
+/* Stat cards */
+.stat-card {
+  border-radius: 14px;
+  text-align: center;
+  padding: 20px 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.1);
+}
+.stat-number { font-size: 2.2rem; font-weight: 700; }
+
+/* Quick action cards */
+.quick-card .card { transition: transform .2s, box-shadow .2s; color: #333; }
+.quick-card .card:hover { transform: translateY(-4px); box-shadow: 0 6px 20px rgba(0,0,0,.12) !important; }
+.quick-card .card div:first-child { font-size: 2.2rem; }
+
+/* Vocab cards */
+.vocab-card { border-radius: 12px; transition: transform .2s; }
+.vocab-card:hover { transform: translateY(-2px); }
+.kanji-text { font-size: 2.4rem; font-weight: 700; color: #c0392b; line-height: 1; }
+.reading-text { font-size: 1rem; }
+.meaning-text { color: #333; }
+.example-box { background: #fafafa; border-left: 3px solid #dc3545; border-radius: 4px; padding: 8px 12px; }
+
+/* Status badges */
+.status-new    { background: #6c757d !important; color: #fff !important; }
+.status-learning { background: #ffc107 !important; color: #333 !important; }
+.status-mastered { background: #198754 !important; color: #fff !important; }
+
+/* Quiz type selection cards */
+.quiz-type-card { border-radius: 14px; transition: transform .2s, box-shadow .2s; cursor: pointer; }
+.quiz-type-card:hover { transform: translateY(-4px); box-shadow: 0 6px 20px rgba(0,0,0,.12) !important; }
+.quiz-icon { font-size: 3rem; font-weight: 700; color: #dc3545; }
+
+/* Quiz options */
+.quiz-option {
+  cursor: pointer;
+  border: 2px solid #dee2e6;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  transition: border-color .15s, background .15s;
+}
+.quiz-option:hover { border-color: #dc3545; background: #fff5f5; }
+.quiz-option.selected { border-color: #dc3545; background: #fff0f0; }
+
+/* Context box (listening / reading) */
+.context-box {
+  background: #fffbea;
+  border-left: 4px solid #ffc107;
+  border-radius: 6px;
+  padding: 16px;
+  white-space: pre-line;
+  font-size: .9rem;
+  line-height: 1.7;
+}
+
+/* Progress bar */
+.mastery-bar { height: 18px; border-radius: 10px; }
+
+/* Responsive tweaks */
+@media (max-width: 576px) {
+  .stat-number { font-size: 1.6rem; }
+  .kanji-text { font-size: 1.8rem; }
+}

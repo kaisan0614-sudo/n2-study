@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}{{ type_name }} — N2 題庫{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-3 mb-3">
+  <a href="/quiz" class="btn btn-outline-secondary btn-sm">‹ 返回</a>
+  <h3 class="fw-bold mb-0">{{ type_name }}</h3>
+</div>
+
+<!-- Quiz Area -->
+<div id="quiz-area">
+  <div class="card shadow-sm mb-3">
+    <div class="card-body pb-2">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span id="q-num" class="fw-bold text-muted small">問題 1 / {{ questions|length }}</span>
+        <span id="q-type-badge" class="badge bg-danger">{{ type_name }}</span>
+      </div>
+      <div class="progress mb-0" style="height:6px">
+        <div id="prog-bar" class="progress-bar bg-danger" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context (listening / reading) -->
+  <div id="context-box" class="context-box mb-3" style="display:none"></div>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <p id="q-text" class="fs-5 fw-bold mb-4"></p>
+      <div id="options">
+        {% for opt in ['a','b','c','d'] %}
+        <label class="quiz-option d-flex align-items-center gap-3" id="label-{{ opt }}">
+          <input type="radio" name="answer" value="{{ opt }}" id="opt-{{ opt }}" class="form-check-input mt-0" style="min-width:18px">
+          <span id="opt-text-{{ opt }}"></span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-between mt-3">
+    <button id="btn-prev" class="btn btn-outline-secondary" onclick="prevQ()" style="display:none">‹ 上一題</button>
+    <div class="ms-auto d-flex gap-2">
+      <button id="btn-next" class="btn btn-danger" onclick="nextQ()">下一題 ›</button>
+      <button id="btn-submit" class="btn btn-success" onclick="submitQuiz()" style="display:none">提交答案 ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- Results Area -->
+<div id="results-area" style="display:none">
+  <div class="card shadow-sm mb-4">
+    <div class="card-body text-center py-4">
+      <div style="font-size:3rem" id="result-emoji">🎉</div>
+      <h3 class="fw-bold mt-2">答題完成！</h3>
+      <div class="display-4 fw-bold text-danger" id="score-display"></div>
+      <p class="text-muted" id="pct-display"></p>
+    </div>
+  </div>
+  <h5 class="fw-bold mb-3">解題說明</h5>
+  <div id="details-list"></div>
+  <div class="mt-4 d-flex gap-2">
+    <button onclick="resetQuiz()" class="btn btn-danger">重新練習</button>
+    <a href="/quiz" class="btn btn-outline-secondary">選其他題型</a>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+const questions = {{ questions | tojson }};
+let cur = 0;
+const answers = {};
+
+function showQ(i) {
+  const q = questions[i];
+  document.getElementById('q-num').textContent = `問題 ${i+1} / ${questions.length}`;
+  document.getElementById('prog-bar').style.width = `${((i+1)/questions.length*100).toFixed(0)}%`;
+
+  const ctx = document.getElementById('context-box');
+  if (q.context) {
+    ctx.innerHTML = q.context.replace(/\n/g,'<br>');
+    ctx.style.display = 'block';
+  } else {
+    ctx.style.display = 'none';
+  }
+
+  document.getElementById('q-text').textContent = q.question;
+  ['a','b','c','d'].forEach(opt => {
+    document.getElementById('opt-text-' + opt).textContent = `${opt.toUpperCase()}．${q['option_' + opt]}`;
+    const radio = document.getElementById('opt-' + opt);
+    radio.checked = answers[q.id] === opt;
+    document.getElementById('label-' + opt).classList.toggle('selected', answers[q.id] === opt);
+  });
+
+  document.getElementById('btn-prev').style.display = i > 0 ? 'block' : 'none';
+  document.getElementById('btn-next').style.display = i < questions.length - 1 ? 'block' : 'none';
+  document.getElementById('btn-submit').style.display = i === questions.length - 1 ? 'block' : 'none';
+}
+
+document.querySelectorAll('input[name="answer"]').forEach(r => {
+  r.addEventListener('change', e => {
+    answers[questions[cur].id] = e.target.value;
+    document.querySelectorAll('.quiz-option').forEach(l => l.classList.remove('selected'));
+    e.target.closest('.quiz-option').classList.add('selected');
+  });
+});
+
+function prevQ() { if (cur > 0) { cur--; showQ(cur); } }
+
+function nextQ() {
+  const sel = document.querySelector('input[name="answer"]:checked');
+  if (sel) answers[questions[cur].id] = sel.value;
+  if (cur < questions.length - 1) { cur++; showQ(cur); }
+}
+
+async function submitQuiz() {
+  const sel = document.querySelector('input[name="answer"]:checked');
+  if (sel) answers[questions[cur].id] = sel.value;
+  if (Object.keys(answers).length === 0) { alert('請先選擇答案！'); return; }
+
+  const res = await fetch('/api/quiz/submit', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({answers})
+  });
+  const data = await res.json();
+  showResults(data);
+}
+
+function showResults(data) {
+  document.getElementById('quiz-area').style.display = 'none';
+  document.getElementById('results-area').style.display = 'block';
+  document.getElementById('score-display').textContent = `${data.correct} / ${data.total}`;
+  document.getElementById('pct-display').textContent = `正確率 ${data.percentage}%`;
+  document.getElementById('result-emoji').textContent = data.percentage >= 80 ? '🎉' : data.percentage >= 60 ? '👍' : '💪';
+
+  const list = document.getElementById('details-list');
+  list.innerHTML = '';
+  data.details.forEach((d, i) => {
+    const div = document.createElement('div');
+    div.className = `card mb-3 border-${d.is_correct ? 'success' : 'danger'}`;
+    div.innerHTML = `
+      <div class="card-body">
+        <div class="d-flex justify-content-between mb-2">
+          <strong>問題 ${i+1}</strong>
+          <span class="badge ${d.is_correct ? 'bg-success' : 'bg-danger'}">${d.is_correct ? '✓ 正確' : '✗ 錯誤'}</span>
+        </div>
+        <p class="mb-2 small">${d.question}</p>
+        <div class="small">
+          <span class="text-muted">你的答案：</span><span class="${d.is_correct ? 'text-success' : 'text-danger'} fw-bold">${d.your_answer}</span><br>
+          ${!d.is_correct ? `<span class="text-muted">正確答案：</span><span class="text-success fw-bold">${d.correct_answer}</span><br>` : ''}
+          ${d.explanation ? `<div class="mt-2 text-muted"><i class="bi bi-lightbulb"></i> ${d.explanation}</div>` : ''}
+        </div>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
+function resetQuiz() {
+  Object.keys(answers).forEach(k => delete answers[k]);
+  cur = 0;
+  document.getElementById('quiz-area').style.display = 'block';
+  document.getElementById('results-area').style.display = 'none';
+  document.querySelectorAll('input[name="answer"]').forEach(r => r.checked = false);
+  document.querySelectorAll('.quiz-option').forEach(l => l.classList.remove('selected'));
+  showQ(0);
+}
+
+showQ(0);
+</script>
+{% endblock %}

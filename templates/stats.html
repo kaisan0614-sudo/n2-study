@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}學習進度 — N2 日文學習{% endblock %}
+{% block content %}
+
+<h3 class="fw-bold mb-4">📈 學習進度統計</h3>
+
+<!-- 頂部統計卡 -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card bg-danger text-white">
+      <div class="stat-number">{{ stats.consecutive_days }}</div>
+      <div>🔥 連續天數</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card bg-success text-white">
+      <div class="stat-number">{{ stats.mastery_pct }}%</div>
+      <div>✅ 詞彙掌握率</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card bg-primary text-white">
+      <div class="stat-number">{{ stats.overall_accuracy }}%</div>
+      <div>🎯 總體正確率</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card bg-secondary text-white">
+      <div class="stat-number">{{ stats.total_attempts }}</div>
+      <div>📝 總作答次數</div>
+    </div>
+  </div>
+</div>
+
+<!-- 詞彙三層進度 -->
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h5 class="card-title">📚 詞彙三層進度（共 {{ stats.vocab_total }} 個）</h5>
+    <div class="mb-2">
+      <div class="d-flex justify-content-between"><span>已掌握</span><span>{{ stats.vocab_mastered }} 個</span></div>
+      <div class="progress mb-2" style="height:14px">
+        <div class="progress-bar bg-success" style="width:{{ (stats.vocab_mastered/stats.vocab_total*100)|round(1) if stats.vocab_total else 0 }}%"></div>
+      </div>
+      <div class="d-flex justify-content-between"><span>學習中</span><span>{{ stats.vocab_learning }} 個</span></div>
+      <div class="progress mb-2" style="height:14px">
+        <div class="progress-bar bg-warning" style="width:{{ (stats.vocab_learning/stats.vocab_total*100)|round(1) if stats.vocab_total else 0 }}%"></div>
+      </div>
+      <div class="d-flex justify-content-between"><span>新單字</span><span>{{ stats.vocab_new }} 個</span></div>
+      <div class="progress" style="height:14px">
+        <div class="progress-bar bg-secondary" style="width:{{ (stats.vocab_new/stats.vocab_total*100)|round(1) if stats.vocab_total else 0 }}%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <!-- 按題型正確率 -->
+  <div class="col-12 col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h5 class="card-title">🎯 按題型正確率</h5>
+        <canvas id="accuracyChart" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 詞彙掌握圓餅圖 -->
+  <div class="col-12 col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h5 class="card-title">📊 詞彙掌握分佈</h5>
+        <canvas id="vocabChart" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 週學習分佈 -->
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h5 class="card-title">📅 近7天學習紀錄</h5>
+    <canvas id="weekChart" height="100"></canvas>
+  </div>
+</div>
+
+<!-- 備份 & 匯入 -->
+<div class="row g-3">
+  <div class="col-12 col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">💾 資料備份</h5>
+        <p class="text-muted small">將學習進度備份到本機 backups/ 資料夾。</p>
+        <button class="btn btn-outline-danger" onclick="doBackup()">立即備份</button>
+        <div id="backup-msg" class="mt-2 small text-success"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">📥 批量匯入詞彙</h5>
+        <p class="text-muted small">上傳 CSV（欄位：kanji, reading, meaning, example_jp, example_zh）</p>
+        <input type="file" id="csv-file" accept=".csv" class="form-control form-control-sm mb-2">
+        <button class="btn btn-outline-primary btn-sm" onclick="doImport()">匯入</button>
+        <div id="import-msg" class="mt-2 small text-success"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+const accData = {{ stats.accuracy_by_type | tojson }};
+const vocabData = [{{ stats.vocab_mastered }}, {{ stats.vocab_learning }}, {{ stats.vocab_new }}];
+const weekData = {{ stats.weekly_data | tojson }};
+
+// 按題型正確率
+new Chart(document.getElementById('accuracyChart'), {
+  type: 'bar',
+  data: {
+    labels: ['漢字讀音', '語法', '聽力', '閱讀'],
+    datasets: [{
+      label: '正確率 (%)',
+      data: [accData.kanji, accData.grammar, accData.listening, accData.reading],
+      backgroundColor: ['#dc3545','#0d6efd','#ffc107','#198754'],
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    scales: { y: { min: 0, max: 100, ticks: { callback: v => v+'%' } } },
+    plugins: { legend: { display: false } }
+  }
+});
+
+// 詞彙掌握圓餅
+new Chart(document.getElementById('vocabChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['已掌握', '學習中', '新單字'],
+    datasets: [{
+      data: vocabData,
+      backgroundColor: ['#198754','#ffc107','#adb5bd'],
+      borderWidth: 2,
+    }]
+  },
+  options: { plugins: { legend: { position: 'bottom' } } }
+});
+
+// 週學習分佈
+new Chart(document.getElementById('weekChart'), {
+  type: 'bar',
+  data: {
+    labels: weekData.map(d => d.date),
+    datasets: [{
+      label: '有學習',
+      data: weekData.map(d => d.studied),
+      backgroundColor: weekData.map(d => d.studied ? '#dc3545' : '#dee2e6'),
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    scales: { y: { display: false, max: 1.5 } },
+    plugins: { legend: { display: false } }
+  }
+});
+
+async function doBackup() {
+  const r = await fetch('/api/backup', {method:'POST'});
+  const d = await r.json();
+  document.getElementById('backup-msg').textContent = d.success ? `✓ 備份完成：${d.filename}` : '備份失敗';
+}
+
+async function doImport() {
+  const file = document.getElementById('csv-file').files[0];
+  if (!file) { alert('請選擇 CSV 檔案'); return; }
+  const fd = new FormData();
+  fd.append('file', file);
+  const r = await fetch('/api/import', {method:'POST', body: fd});
+  const d = await r.json();
+  document.getElementById('import-msg').textContent = d.success ? `✓ 匯入 ${d.imported} 筆詞彙！` : `失敗：${d.error}`;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}首頁 — N2 日文學習{% endblock %}
+{% block content %}
+
+<div class="row mb-4">
+  <div class="col">
+    <h2 class="fw-bold">こんにちは！今日も頑張ろう 💪</h2>
+    <p class="text-muted">今日是你的第 <strong>{{ stats.consecutive_days }}</strong> 天連續學習</p>
+  </div>
+</div>
+
+<!-- 統計卡 -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card bg-danger text-white">
+      <div class="stat-number">{{ stats.consecutive_days }}</div>
+      <div>🔥 連續天數</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card bg-success text-white">
+      <div class="stat-number">{{ stats.vocab_mastered }}</div>
+      <div>✅ 已掌握詞彙</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card bg-warning text-dark">
+      <div class="stat-number">{{ stats.vocab_learning }}</div>
+      <div>📖 學習中詞彙</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card bg-primary text-white">
+      <div class="stat-number">{{ stats.quiz_accuracy }}%</div>
+      <div>🎯 答題正確率</div>
+    </div>
+  </div>
+</div>
+
+<!-- 詞彙掌握進度 -->
+<div class="card mb-4 shadow-sm">
+  <div class="card-body">
+    <h5 class="card-title">📊 詞彙掌握進度</h5>
+    <div class="d-flex justify-content-between mb-1">
+      <small>已掌握 {{ stats.vocab_mastered }} / {{ stats.vocab_total }} 個</small>
+      <small><strong>{{ stats.mastery_pct }}%</strong></small>
+    </div>
+    <div class="progress mastery-bar">
+      <div class="progress-bar bg-success" style="width:{{ stats.mastery_pct }}%"></div>
+    </div>
+    <div class="mt-2">
+      <span class="badge bg-secondary me-1">新單字 {{ stats.vocab_new }}</span>
+      <span class="badge bg-warning text-dark me-1">學習中 {{ stats.vocab_learning }}</span>
+      <span class="badge bg-success">已掌握 {{ stats.vocab_mastered }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- 快速入口 -->
+<h5 class="fw-bold mb-3">快速入口</h5>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <a href="/vocab?day={{ current_day }}" class="quick-card text-decoration-none">
+      <div class="card h-100 border-0 shadow-sm text-center p-3">
+        <div style="font-size:2.5rem">📚</div>
+        <div class="fw-bold mt-2">今日詞彙</div>
+        <small class="text-muted">Day {{ current_day }}</small>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="/quiz/kanji" class="quick-card text-decoration-none">
+      <div class="card h-100 border-0 shadow-sm text-center p-3">
+        <div style="font-size:2.5rem">漢</div>
+        <div class="fw-bold mt-2">漢字讀音</div>
+        <small class="text-muted">5 題</small>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="/quiz/grammar" class="quick-card text-decoration-none">
+      <div class="card h-100 border-0 shadow-sm text-center p-3">
+        <div style="font-size:2.5rem">文</div>
+        <div class="fw-bold mt-2">語法選擇</div>
+        <small class="text-muted">5 題</small>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="/stats" class="quick-card text-decoration-none">
+      <div class="card h-100 border-0 shadow-sm text-center p-3">
+        <div style="font-size:2.5rem">📈</div>
+        <div class="fw-bold mt-2">查看進度</div>
+        <small class="text-muted">詳細統計</small>
+      </div>
+    </a>
+  </div>
+</div>
+
+{% endblock %}

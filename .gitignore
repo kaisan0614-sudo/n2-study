@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.pyo
+*.db
+backups/
+*.json
+run.bat
+official_samples/
