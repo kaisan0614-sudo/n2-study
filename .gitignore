@@ -6,3 +6,6 @@ backups/
 *.json
 run.bat
 official_samples/
+export_questions.py
+rebuild_data.py
+questions_export.py
