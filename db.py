@@ -171,16 +171,20 @@ def seed_data():
     conn = get_db()
     c = conn.cursor()
 
-    if c.execute("SELECT COUNT(*) FROM vocabulary").fetchone()[0] == 0:
+    existing_kanji = {r[0] for r in c.execute("SELECT kanji FROM vocabulary").fetchall()}
+    new_vocab = [v for v in VOCABULARY if v["kanji"] not in existing_kanji]
+    if new_vocab:
         c.executemany(
             "INSERT INTO vocabulary (kanji, reading, meaning, example_jp, example_zh, day_group) VALUES (?,?,?,?,?,?)",
-            [(v["kanji"], v["reading"], v["meaning"], v["example_jp"], v["example_zh"], v["day_group"]) for v in VOCABULARY]
+            [(v["kanji"], v["reading"], v["meaning"], v["example_jp"], v["example_zh"], v["day_group"]) for v in new_vocab]
         )
 
-    if c.execute("SELECT COUNT(*) FROM questions").fetchone()[0] == 0:
+    existing_q = {r[0] for r in c.execute("SELECT question FROM questions").fetchall()}
+    new_questions = [q for q in QUESTIONS if q["question"] not in existing_q]
+    if new_questions:
         c.executemany(
             "INSERT INTO questions (type,context,question,option_a,option_b,option_c,option_d,correct_answer,explanation) VALUES (?,?,?,?,?,?,?,?,?)",
-            [(q["type"], q.get("context"), q["question"], q["option_a"], q["option_b"], q["option_c"], q["option_d"], q["correct_answer"], q.get("explanation")) for q in QUESTIONS]
+            [(q["type"], q.get("context"), q["question"], q["option_a"], q["option_b"], q["option_c"], q["option_d"], q["correct_answer"], q.get("explanation")) for q in new_questions]
         )
 
     conn.commit()
